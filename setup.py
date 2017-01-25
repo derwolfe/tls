@@ -19,6 +19,7 @@ setuptools.setup(
         "cryptography",
         "enum34",
         "hypothesis",
+        "automat"
     ],
     packages=setuptools.find_packages()
 )

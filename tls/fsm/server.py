@@ -35,33 +35,42 @@ class ServerHandshake(object):
 
     # states
     @_machine.state(initial=True)
-    def received_client_hello(self):
+    def waiting_for_client_hello(self):
         """we've been given client hello"""
 
     @_machine.state()
-    def sent_server_hello_done(self):
-        """Server hello has been sent completely"""
+    def waiting_for_client_finished(self):
+        """Waiting for client finished message"""
 
     @_machine.state()
-    def handshake_failed(self):
-        """The handshake has failed negotiation"""
-
-    @_machine.state()
-    def change_cipher_spec_sent(self):
+    def waiting_change_cipher_spec_sent(self):
         """Change cipher spec message has been sent"""
 
     @_machine.state()
-    def finished(self):
+    def hello_finished(self):
         """The server has finished negotiation"""
+
+    @_machine.state()
+    def connection_closed(self):
+        """The connection is closed"""
 
     # inputs
     @_machine.input()
-    def client_hello(self):
+    def hello_request(self):
+        """restart the entire handshake"""
+
+    @_machine.input()
+    def basic_client_hello(self):
         """A client hello message"""
 
     @_machine.input()
-    def alert_message(self):
-        """An alert message sent by the client"""
+    def client_certificate(self):
+        """validate client certificate"""
+
+    # XXX - there might need to be one of these for _every_ alert??
+    @_machine.input()
+    def close_notify(self):
+        """close notify received"""
 
     # outputs
     @_machine.output()
@@ -99,4 +108,33 @@ class ServerHandshake(object):
         """
         return self._performer.do("server hello done")
 
+    @_machine_output()
+    def _send_server_finished(self):
+        """
+        https://tools.ietf.org/html/rfc4346#section-7.4.9
+        """
+        return self._performer.do("finished")
+
+    @_machine.output()
+    def _handshake_failed(self):
+        """The handshake has failed negotiation"""
+        return self._performer.do("handshake_failed")
+
+    @_machine.output()
+    def _close_connection(self):
+        """Tell the peer that we are shutting it down"""
+        return self._performer.do("close")
+
+
+    @_machine.output()
+    def _change_cipher_spec(self):
+        """Tell the peer to negotiate ciphers"""
+        return self._performer.do("change cipherspec")
+
     # transitions
+    # how to encode the different client hello conditions? What about client certs, etc.
+    waiting_for_client_hello.upon(
+        basic_client_hello,
+        enter=waiting_for_client_finished,
+        outputs=[_change_cipher_spec, _send_server_finished]
+    )
