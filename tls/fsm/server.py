@@ -106,6 +106,10 @@ class ServerHandshake(object):
         "sit on hands, like waiting, but not... waiting"
 
     @_machine.state()
+    def dead(self):
+        "we've died and can no longer continue"
+
+    @_machine.state()
     def wait(self):
         "wait for something..."
 
@@ -119,7 +123,7 @@ class ServerHandshake(object):
 
     @_machine.state()
     def app_data(self):
-        "move app data"
+        "shuffle app data"
 
     # inputs
     @_machine.input()
@@ -139,6 +143,7 @@ class ServerHandshake(object):
         "be told by the client that it is finished"
 
     # hmm, what about all of the alert states
+    # `alert` should just be its own machine
     @_machine.input()
     def alert_star():
         "FIXME this is a catch all for any alert"
@@ -188,10 +193,17 @@ class ServerHandshake(object):
         outputs=[_server_hello, _change_cipher_spec, _finished],
     )
 
+    #  server key exchange begin, end.
     check_session_cache.upon(
         id_not_found_somehow,
         enter=wait,
-        outputs=[_server_hello, _certificate, _server_key_exchange, _certificate_request, _server_hello_done],
+        outputs=[
+            _server_hello,
+            _certificate,
+            _server_key_exchange,
+            _certificate_request,
+            _server_hello_done
+        ],
     )
 
     wait.upon(
@@ -206,14 +218,14 @@ class ServerHandshake(object):
         outputs=[],
     )
 
-    app_data.upon(
-        client_hello,
-        enter=app_data,
-        outputs=[_alert],
-    )
-
+    # evaluate all of the evil conditions that should cause death.
     # app_data.upon(
-    #     _alert,
-    #     enter=idle,
+    #     client_hello,
+    #     enter=dead,
+    #     outputs=[_alert],
+    # )
+    # app_data.upon(
+    #     alert_star,
+    #     enter=dead,
     #     outputs=[],
     # )
