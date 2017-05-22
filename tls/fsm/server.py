@@ -3,7 +3,8 @@ from __future__ import absolute_import, division, print_function
 from automat import MethodicalMachine
 
 
-__all__ = ['ReturningPerformer', 'ServerHandshake']
+__all__ = ['ReturningPerformer', 'ServerHandshake', 'ChangeCipherspec']
+
 
 
 # this needs an iface
@@ -57,17 +58,19 @@ class ChangeCipherspec(object):
 
     @_m.output()
     def _send_cipherspec(self, the_spec):
-        self._performer("send a cipherspec change request: {}".format(the_spec))
+        return self._performer.do(
+            "change to {}".format(the_spec)
+        )
 
     @_m.output()
     def _send_server_done(self, the_spec):
-        self._performer("server done")
+        return self._performer.do("server done")
 
     @_m.output()
     def _save_cipherspec(self, the_spec):
         # maybe you don't actually need to save the cipherspec and instead you
         # just need to return it to the caller.
-        return self._performer("saving cipherspec")
+        return self._performer.do("saving cipherspec")
 
     done.upon(
         from_us,
