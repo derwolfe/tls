@@ -55,8 +55,6 @@ class ChangeCipherspec(object):
     def client_done(self):
         pass
 
-    # what if this was a request from the client.
-    # What if you need to change the spec when you aren't in the agreed
     @_m.output()
     def _send_cipherspec(self, the_spec):
         self._performer("send a cipherspec change request: {}".format(the_spec))
@@ -67,13 +65,14 @@ class ChangeCipherspec(object):
 
     @_m.output()
     def _save_cipherspec(self, the_spec):
-        self._performer("saving cipherspec")
+        # maybe you don't actually need to save the cipherspec and instead you
+        # just need to return it to the caller.
+        return self._performer("saving cipherspec")
 
-    # do we always agree on receipt?
     done.upon(
         from_us,
         enter=change,
-        outputs=[_send_cipherspec, _save_cipherspec]
+        outputs=[_send_cipherspec, _save_cipherspec, _send_server_done]
     )
 
     done.upon(
