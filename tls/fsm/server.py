@@ -16,6 +16,73 @@ class ReturningPerformer(object):
         return action
 
 
+class ChangeCipherspec(object):
+
+    def __init__(self, performer):
+        self._performer = performer
+
+    _m = MethodicalMachine()
+
+    @_m.state(initial=True)
+    def done(self):
+        "we're good"
+
+    @_m.state()
+    def change(self):
+        """
+        A change has been requested, you need to alter the cipherspec _and_
+        copy some data that you were going to send into a buffer to send using
+        the newly requested cipherspec
+        """
+
+    @_m.input()
+    def my_cipherspec(self, the_spec):
+        pass
+
+    @_m.input()
+    def use_client_cipherspec(self, the_spec):
+        pass
+
+    @_m.input()
+    def client_done(self):
+        pass
+
+    # what if this was a request from the client.
+    # What if you need to change the spec when you aren't in the agreed
+    @_m.output()
+    def _send_cipherspec(self, the_spec):
+        self._performer("send a cipherspec change request: {}".format(the_spec))
+
+    @_m.output()
+    def _send_server_done(self, the_spec):
+        self._performer("server done")
+
+    @_m.output()
+    def _save_cipherspec(self, the_spec):
+        self._performer("saving cipherspec")
+
+    # do we always agree on receipt?
+    done.upon(
+        my_cipherspec,
+        enter=change,
+        outputs=[_send_cipherspec, _save_cipherspec]
+    )
+
+    done.upon(
+        use_client_cipherspec,
+        enter=change,
+        outputs=[_save_cipherspec, send_server_done]
+    )
+
+    change.upon(
+        client_done,
+        enter=done,
+        outputs=[]
+    )
+
+
+
+
 class ServerHandshake(object):
     """
     A state-machine representing the server handshake.
