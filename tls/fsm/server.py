@@ -36,11 +36,19 @@ class ChangeCipherspec(object):
         """
 
     @_m.input()
-    def my_cipherspec(self, the_spec):
+    def from_us(self, the_spec):
+        """
+        Tell the client that we want to use a new cipherspec. Immediately after
+        finishing that, send server_done.
+        """
         pass
 
     @_m.input()
-    def use_client_cipherspec(self, the_spec):
+    def from_them(self, the_spec):
+        """
+        The client has requested that we use change the cipherspec for future
+        communication. Use their requested cipherspec.
+        """
         pass
 
     @_m.input()
@@ -63,15 +71,15 @@ class ChangeCipherspec(object):
 
     # do we always agree on receipt?
     done.upon(
-        my_cipherspec,
+        from_us,
         enter=change,
         outputs=[_send_cipherspec, _save_cipherspec]
     )
 
     done.upon(
-        use_client_cipherspec,
+        from_them,
         enter=change,
-        outputs=[_save_cipherspec, send_server_done]
+        outputs=[_save_cipherspec, _send_server_done]
     )
 
     change.upon(
@@ -79,8 +87,6 @@ class ChangeCipherspec(object):
         enter=done,
         outputs=[]
     )
-
-
 
 
 class ServerHandshake(object):
