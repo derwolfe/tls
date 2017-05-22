@@ -39,12 +39,20 @@ class ServerHandshake(object):
         """we've been given client hello"""
 
     @_machine.state()
-    def waiting_for_client_finished(self):
-        """Waiting for client finished message"""
-
-    @_machine.state()
     def waiting_change_cipher_spec_sent(self):
         """Change cipher spec message has been sent"""
+
+    @_machine.state()
+    def server_hello_started():
+        """Begin sending server hello"""
+
+    @_machine.state()
+    def server_hello_finished():
+        """Finished sending server hello"""
+
+    @_machine.state()
+    def waiting_for_client_finished(self):
+        """Waiting for client finished message"""
 
     @_machine.state()
     def hello_finished(self):
@@ -67,7 +75,7 @@ class ServerHandshake(object):
     def client_certificate(self):
         """validate client certificate"""
 
-    # XXX - there might need to be one of these for _every_ alert??
+    # XXX you might want to make a machine for alerts
     @_machine.input()
     def close_notify(self):
         """close notify received"""
@@ -101,14 +109,14 @@ class ServerHandshake(object):
         """
         return self._performer.do("request client certificate")
 
-    @_machine_output()
+    @_machine.output()
     def _send_server_hello_done(self):
         """
         https://tools.ietf.org/html/rfc4346#section-7.4.5
         """
         return self._performer.do("server hello done")
 
-    @_machine_output()
+    @_machine.output()
     def _send_server_finished(self):
         """
         https://tools.ietf.org/html/rfc4346#section-7.4.9
@@ -125,16 +133,41 @@ class ServerHandshake(object):
         """Tell the peer that we are shutting it down"""
         return self._performer.do("close")
 
-
     @_machine.output()
     def _change_cipher_spec(self):
         """Tell the peer to negotiate ciphers"""
         return self._performer.do("change cipherspec")
 
-    # transitions
-    # how to encode the different client hello conditions? What about client certs, etc.
+    # transitions - use the outputs to communicate the inputs to any state that
+    # you'd like the machine to retain. E.g., def in(self, foo): "takes foo" ->
+    # def _output(self, foo): self._foo = foo
+
+    # Happy path state transitions;
+    # Client                                               Server
+    #
+    # ClientHello                  -------->
+    #                                                 ServerHello
+    #                                                Certificate*
+    #                                          ServerKeyExchange*
+    #                                         CertificateRequest*
+    #                              <--------      ServerHelloDone
+    # Certificate*
+    # ClientKeyExchange
+    # CertificateVerify*
+    # [ChangeCipherSpec]
+    # Finished                     -------->
+    #                                          [ChangeCipherSpec]
+    #                              <--------             Finished
+    # Application Data             <------->     Application Data
+
     waiting_for_client_hello.upon(
         basic_client_hello,
         enter=waiting_for_client_finished,
-        outputs=[_change_cipher_spec, _send_server_finished]
+        outputs=[]
+    )
+
+    waiting_for_client_finished.upon(
+
+        enter=starting_server_hello,
+        outputs=[]
     )
