@@ -35,139 +35,118 @@ class ServerHandshake(object):
 
     # states
     @_machine.state(initial=True)
-    def waiting_for_client_hello(self):
-        """we've been given client hello"""
+    def idle(self):
+        "sit on hands, like waiting, but not... waiting"
 
     @_machine.state()
-    def waiting_change_cipher_spec_sent(self):
-        """Change cipher spec message has been sent"""
+    def wait(self):
+        "wait for something..."
 
     @_machine.state()
-    def server_hello_started():
-        """Begin sending server hello"""
+    def wait_resume(self):
+        "wait to continue again, you've already done some things."
 
     @_machine.state()
-    def server_hello_finished():
-        """Finished sending server hello"""
+    def check_session_cache(self):
+        "look in the session cache"
 
     @_machine.state()
-    def waiting_for_client_finished(self):
-        """Waiting for client finished message"""
-
-    @_machine.state()
-    def hello_finished(self):
-        """The server has finished negotiation"""
-
-    @_machine.state()
-    def connection_closed(self):
-        """The connection is closed"""
+    def app_data(self):
+        "move app data"
 
     # inputs
     @_machine.input()
-    def hello_request(self):
-        """restart the entire handshake"""
+    def client_hello(self):
+        "A ClientHello message"
 
     @_machine.input()
-    def basic_client_hello(self):
-        """A client hello message"""
+    def id_found_somehow(self):
+        "ID is in the session cache"
 
     @_machine.input()
-    def client_certificate(self):
-        """validate client certificate"""
+    def id_not_found_somehow(self):
+        "We didn't find the id in the session cache"
 
-    # XXX you might want to make a machine for alerts
     @_machine.input()
-    def close_notify(self):
-        """close notify received"""
+    def finished_from_client(self):
+        "be told by the client that it is finished"
 
-    # outputs
+    # hmm, what about all of the alert states
+    @_machine.input()
+    def alert_star():
+        "FIXME this is a catch all for any alert"
+
+    # outs
     @_machine.output()
-    def _send_server_hello(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.1.3
-        """
+    def _server_hello(self):
         return self._performer.do("server hello")
 
     @_machine.output()
-    def _send_server_certificate(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.2
-        """
-        return self._performer.do("server certificate")
+    def _change_cipher_spec(self):
+        return self._performer.do("change cipher spec")
 
     @_machine.output()
-    def _send_server_key(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.3
-        """
-        return self._performer.do("server key")
-
-    @_machine.output()
-    def _send_certificate_request(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.3
-        """
-        return self._performer.do("request client certificate")
-
-    @_machine.output()
-    def _send_server_hello_done(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.5
-        """
-        return self._performer.do("server hello done")
-
-    @_machine.output()
-    def _send_server_finished(self):
-        """
-        https://tools.ietf.org/html/rfc4346#section-7.4.9
-        """
+    def _finished(self):
         return self._performer.do("finished")
 
     @_machine.output()
-    def _handshake_failed(self):
-        """The handshake has failed negotiation"""
-        return self._performer.do("handshake_failed")
+    def _certificate_request(self):
+        return self._performer.do("certificate request")
 
     @_machine.output()
-    def _close_connection(self):
-        """Tell the peer that we are shutting it down"""
-        return self._performer.do("close")
+    def _server_key_exchange(self):
+        return self._performer.do("server key exchange")
 
     @_machine.output()
-    def _change_cipher_spec(self):
-        """Tell the peer to negotiate ciphers"""
-        return self._performer.do("change cipherspec")
+    def _server_hello_done(self):
+        return self._performer.do("server hello done")
 
-    # transitions - use the outputs to communicate the inputs to any state that
-    # you'd like the machine to retain. E.g., def in(self, foo): "takes foo" ->
-    # def _output(self, foo): self._foo = foo
+    @_machine.output()
+    def _alert(self):
+        return self._performer.do("alert")
 
-    # Happy path state transitions;
-    # Client                                               Server
-    #
-    # ClientHello                  -------->
-    #                                                 ServerHello
-    #                                                Certificate*
-    #                                          ServerKeyExchange*
-    #                                         CertificateRequest*
-    #                              <--------      ServerHelloDone
-    # Certificate*
-    # ClientKeyExchange
-    # CertificateVerify*
-    # [ChangeCipherSpec]
-    # Finished                     -------->
-    #                                          [ChangeCipherSpec]
-    #                              <--------             Finished
-    # Application Data             <------->     Application Data
+    @_machine.output()
+    def _certificate(self):
+        return self._performer.do("certificate response")
 
-    waiting_for_client_hello.upon(
-        basic_client_hello,
-        enter=waiting_for_client_finished,
-        outputs=[]
+    idle.upon(
+        client_hello,
+        enter=check_session_cache,
+        outputs=[],
     )
 
-    waiting_for_client_finished.upon(
-
-        enter=starting_server_hello,
-        outputs=[]
+    check_session_cache.upon(
+        id_found_somehow,
+        enter=wait_resume,
+        outputs=[_server_hello, _change_cipher_spec, _finished],
     )
+
+    check_session_cache.upon(
+        id_not_found_somehow,
+        enter=wait,
+        outputs=[_server_hello, _certificate, _server_key_exchange, _certificate_request, _server_hello_done],
+    )
+
+    wait.upon(
+        finished_from_client,
+        enter=app_data,
+        outputs=[_change_cipher_spec, _finished],
+    )
+
+    wait_resume.upon(
+        finished_from_client,
+        enter=app_data,
+        outputs=[],
+    )
+
+    app_data.upon(
+        client_hello,
+        enter=app_data,
+        outputs=[_alert],
+    )
+
+    # app_data.upon(
+    #     _alert,
+    #     enter=idle,
+    #     outputs=[],
+    # )
