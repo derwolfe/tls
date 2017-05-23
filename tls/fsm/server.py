@@ -25,7 +25,7 @@ class ChangeCipherspec(object):
     _m = MethodicalMachine()
 
     @_m.state(initial=True)
-    def done(self):
+    def agreed(self):
         "we're good"
 
     @_m.state()
@@ -72,13 +72,13 @@ class ChangeCipherspec(object):
         # just need to return it to the caller.
         return self._performer.do("saving cipherspec")
 
-    done.upon(
+    agreed.upon(
         from_us,
         enter=change,
         outputs=[_send_cipherspec, _save_cipherspec, _send_server_done]
     )
 
-    done.upon(
+    agreed.upon(
         from_them,
         enter=change,
         outputs=[_save_cipherspec, _send_server_done]
@@ -86,7 +86,7 @@ class ChangeCipherspec(object):
 
     change.upon(
         client_done,
-        enter=done,
+        enter=agreed,
         outputs=[]
     )
 
@@ -103,89 +103,89 @@ class ServerHandshake(object):
     :type performer: an instance of `IPerformer`
     """
 
-    _machine = MethodicalMachine()
+    _m = MethodicalMachine()
 
     def __init__(self, performer):
         self._performer = performer
 
     # states
-    @_machine.state(initial=True)
+    @_m.state(initial=True)
     def idle(self):
         "sit on hands, like waiting, but not... waiting"
 
-    @_machine.state()
+    @_m.state()
     def dead(self):
         "we've died and can no longer continue"
 
-    @_machine.state()
+    @_m.state()
     def wait(self):
         "wait for something..."
 
-    @_machine.state()
+    @_m.state()
     def wait_resume(self):
         "wait to continue again, you've already done some things."
 
-    @_machine.state()
+    @_m.state()
     def check_session_cache(self):
         "look in the session cache"
 
-    @_machine.state()
+    @_m.state()
     def app_data(self):
         "shuffle app data"
 
     # inputs
-    @_machine.input()
+    @_m.input()
     def client_hello(self):
         "A ClientHello message"
 
-    @_machine.input()
+    @_m.input()
     def id_found_somehow(self):
         "ID is in the session cache"
 
-    @_machine.input()
+    @_m.input()
     def id_not_found_somehow(self):
         "We didn't find the id in the session cache"
 
-    @_machine.input()
+    @_m.input()
     def finished_from_client(self):
         "be told by the client that it is finished"
 
     # hmm, what about all of the alert states
     # `alert` should just be its own machine
-    @_machine.input()
+    @_m.input()
     def alert_star():
         "FIXME this is a catch all for any alert"
 
     # outs
-    @_machine.output()
+    @_m.output()
     def _server_hello(self):
         return self._performer.do("server hello")
 
-    @_machine.output()
+    @_m.output()
     def _change_cipher_spec(self):
         return self._performer.do("change cipher spec")
 
-    @_machine.output()
+    @_m.output()
     def _finished(self):
         return self._performer.do("finished")
 
-    @_machine.output()
+    @_m.output()
     def _certificate_request(self):
         return self._performer.do("certificate request")
 
-    @_machine.output()
+    @_m.output()
     def _server_key_exchange(self):
         return self._performer.do("server key exchange")
 
-    @_machine.output()
+    @_m.output()
     def _server_hello_done(self):
         return self._performer.do("server hello done")
 
-    @_machine.output()
+    @_m.output()
     def _alert(self):
         return self._performer.do("alert")
 
-    @_machine.output()
+    @_m.output()
     def _certificate(self):
         return self._performer.do("certificate response")
 
