@@ -237,3 +237,45 @@ class ServerHandshake(object):
     #     enter=dead,
     #     outputs=[],
     # )
+
+
+class Alerts(object):
+
+    _m = MethodicalMachine()
+
+    # states
+    @_m.state()
+    def open(self):
+        "we are open and working"
+
+    @_m.state()
+    def received_close_notify(self):
+        "got a close notify message"
+
+    @_m.state()
+    def sent_close_notify(self):
+        "sent close notify"
+
+    @_m.state()
+    def closed(self):
+        "we've finished tearing down"
+
+    # inputs
+    @_m.input()
+    def recv_fatal(self, msg):
+        pass
+
+    @_m.input()
+    def recv_error(self, msg):
+        pass
+
+    @_m.input()
+    def
+
+    # outputs
+    @_m.output()
+    def _close_connection(self, msg):
+        self._send_close_notify(client)
+
+    def _send_close_notify(self, msg):
+        pass
